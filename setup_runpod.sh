@@ -54,6 +54,45 @@ else
     echo -e "${GREEN}thinking-in-space 已存在，跳过 clone${NC}"
 fi
 
+# ---------------------------------------------------------------------------
+# 关键补丁: LLaVA-NeXT builder.py 中 SigLIP 优先检测
+# 上游仓库无法 push，这里自动 patch
+# ---------------------------------------------------------------------------
+echo "  应用 SigLIP 优先检测补丁..."
+BUILDER_PY="${PROJECT_DIR}/LLaVA-NeXT/llava/model/multimodal_encoder/builder.py"
+if [ -f "${BUILDER_PY}" ]; then
+    python3 << 'EOF'
+import re
+
+path = "${BUILDER_PY}"
+with open(path, 'r') as f:
+    content = f.read()
+
+# 检查是否已经 patch 过
+if 'Fix: prioritize SigLIP' in content:
+    print("  已 patch，跳过")
+    exit(0)
+
+# 找到 vision_tower = getattr(...) 那一行后面的位置
+old_pattern = r'(    vision_tower = getattr\(vision_tower_cfg, "mm_vision_tower", getattr\(vision_tower_cfg, "vision_tower", None\)\))\n'
+replacement = r'''\1
+    
+    # Fix: prioritize SigLIP detection for local paths
+    if "siglip" in vision_tower.lower():
+        return SigLipVisionTower(vision_tower, vision_tower_cfg=vision_tower_cfg, **kwargs)
+'''
+
+new_content = re.sub(old_pattern, replacement, content)
+
+if new_content == content:
+    print("  警告: 未找到匹配位置，可能上游代码已变更")
+else:
+    with open(path, 'w') as f:
+        f.write(new_content)
+    print("  SigLIP patch 应用成功")
+EOF
+fi
+
 echo -e "${GREEN}[Step 2/8] 代码仓库完成${NC}"
 
 # ============================================================================
