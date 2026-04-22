@@ -1,0 +1,35 @@
+# ============================================================================
+# vlm3d_vsibench 环境核心依赖
+# 用法: conda activate vlm3d_vsibench && pip install -r requirements_vsibench.txt
+# ============================================================================
+
+# PyTorch (CUDA 12.4)
+torch==2.10.0
+torchvision==0.25.0
+
+# Transformers (thinking-in-space 自带修改版，通过 editable 安装)
+# -e ./transformers
+
+# 核心依赖
+accelerate==1.12.0
+deepspeed==0.18.5
+decord==0.6.0
+einops==0.8.2
+numpy==1.26.4
+opencv-python-headless==4.11.0.86
+pillow==12.1.0
+safetensors==0.7.0
+datasets==2.16.1
+av==16.1.0
+huggingface_hub==0.36.2
+peft==0.18.1
+sentencepiece==0.1.99
+timm==1.0.24
+tokenizers==0.19.1
+triton==3.6.0
+
+# 从 Git 安装
+s2wrapper @ git+https://github.com/bfshi/scaling_on_scales
+
+# 其他
+wandb==0.24.2
