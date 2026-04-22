@@ -1,4 +1,5 @@
-dataset_path: nyu-visionx/VSI-Bench
+# dataset_path: nyu-visionx/VSI-Bench
+dataset_path: /mnt/data/qyk/nyu-visionx/VSI-Bench/
 dataset_kwargs:
   token: True
   cache_dir: vsibench

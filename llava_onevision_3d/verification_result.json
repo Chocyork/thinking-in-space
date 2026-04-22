@@ -1,0 +1,33 @@
+{
+  "status": "success",
+  "3d_cache": {
+    "frames": 38,
+    "patches": 729,
+    "valid_ratio": 0.9398960471153259
+  },
+  "encoder_params": 4584577,
+  "tested_frame_counts": [
+    1,
+    4,
+    8,
+    16,
+    32
+  ],
+  "questions": [
+    {
+      "question": "What is the main object in the center?",
+      "type": "spatial",
+      "expected": "table or similar furniture"
+    },
+    {
+      "question": "How many chairs are visible?",
+      "type": "counting",
+      "expected": "2 or more"
+    },
+    {
+      "question": "Which side has more objects, left or right?",
+      "type": "comparison",
+      "expected": "depends on actual layout"
+    }
+  ]
+}

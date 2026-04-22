@@ -868,7 +868,17 @@ class ConfigurableTask(Task):
                 if accelerator.is_main_process:
                     force_download = dataset_kwargs.get("force_download", False)
                     force_unzip = dataset_kwargs.get("force_unzip", False)
-                    cache_path = snapshot_download(repo_id=self.DATASET_PATH, repo_type="dataset", force_download=force_download, etag_timeout=60)
+                    # cache_path = snapshot_download(repo_id=self.DATASET_PATH, repo_type="dataset", force_download=force_download, etag_timeout=60) # 原代码
+
+                    # 🟢【开始修改】添加本地路径检查
+                    if os.path.exists(self.DATASET_PATH):
+                        print(f"Using local dataset: {self.DATASET_PATH}")
+                        cache_path = self.DATASET_PATH
+                    else:
+                        # 只有本地不存在时，才去联网下载
+                        cache_path = snapshot_download(repo_id=self.DATASET_PATH, repo_type="dataset", force_download=force_download, etag_timeout=60)
+                    # 🔴【修改结束】
+
                     zip_files = glob(os.path.join(cache_path, "**/*.zip"), recursive=True)
                     tar_files = glob(os.path.join(cache_path, "**/*.tar*"), recursive=True)
 

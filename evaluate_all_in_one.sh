@@ -76,17 +76,24 @@ for model in "${models[@]}"; do
     "llava_one_vision_qwen2_0p5b_ov_32f")
         model_family="llava_onevision"
         model="llava_one_vision_qwen2_0p5b_ov_${num_frames}f"
-        model_args="pretrained=lmms-lab/llava-onevision-qwen2-0.5b-ov,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
+        # model_args="pretrained=lmms-lab/llava-onevision-qwen2-0.5b-ov,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
+        model_args="pretrained=/mnt/data/qyk/lmms-lab/llava-onevision-qwen2-0.5b-ov/,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
         ;;
     "llava_one_vision_qwen2_7b_ov_32f")
         model_family="llava_onevision"
         model="llava_one_vision_qwen2_7b_ov_${num_frames}f"
-        model_args="pretrained=lmms-lab/llava-onevision-qwen2-7b-ov,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
+        # model_args="pretrained=lmms-lab/llava-onevision-qwen2-7b-ov,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
+        model_args="pretrained=/mnt/data/qyk/lmms-lab/llava-onevision-qwen2-7b-ov/,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
         ;;
     "llava_one_vision_qwen2_72b_ov_32f")
         model_family="llava_onevision"
         model_args="pretrained=lmms-lab/llava-onevision-qwen2-72b-ov-sft,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=32,device_map=auto"
         num_processes=1
+        ;;
+    "llava_video_7b_qwen2_32f")
+        model_family="llava_onevision"
+        model="llava_video_7b_qwen2_${num_frames}f"
+        model_args="pretrained=/mnt/data/qyk/lmms-lab/LLaVA-Video-7B-Qwen2/,conv_template=qwen_1_5,model_name=llava_qwen,max_frames_num=$num_frames"
         ;;
     "llava_next_video_7b_qwen2_32f")
         model_family="llava_vid"

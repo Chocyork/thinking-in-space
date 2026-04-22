@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "question": "What is the main object in the center of the courtyard?",
+    "type": "spatial_center",
+    "expected_keywords": ["table", "desk", "bench"]
+  },
+  {
+    "id": 2,
+    "question": "How many chairs can you see around the table?",
+    "type": "object_counting",
+    "expected_keywords": ["2", "two", "a few"]
+  },
+  {
+    "id": 3,
+    "question": "Is there a tree on the left side or right side of the courtyard?",
+    "type": "spatial_left_right",
+    "expected_keywords": ["left", "right"]
+  },
+  {
+    "id": 4,
+    "question": "What is located behind the central table?",
+    "type": "spatial_behind",
+    "expected_keywords": ["wall", "building", "fence"]
+  },
+  {
+    "id": 5,
+    "question": "Which object is closest to the camera?",
+    "type": "depth_closest",
+    "expected_keywords": ["table", "chair", "plant"]
+  },
+  {
+    "id": 6,
+    "question": "Describe the layout of the courtyard from left to right.",
+    "type": "spatial_layout",
+    "expected_keywords": ["tree", "plant", "table", "chair"]
+  },
+  {
+    "id": 7,
+    "question": "What color is the table in the courtyard?",
+    "type": "object_attribute",
+    "expected_keywords": ["brown", "wooden", "dark"]
+  },
+  {
+    "id": 8,
+    "question": "Are there more objects on the left side or the right side of the courtyard?",
+    "type": "spatial_comparison",
+    "expected_keywords": ["left", "right", "same"]
+  },
+  {
+    "id": 9,
+    "question": "What is the approximate size of the courtyard? Is it small, medium, or large?",
+    "type": "room_size",
+    "expected_keywords": ["small", "medium", "large"]
+  },
+  {
+    "id": 10,
+    "question": "If you enter from the gate and walk straight, what is the first object you would encounter?",
+    "type": "spatial_path",
+    "expected_keywords": ["table", "chair", "plant"]
+  }
+]

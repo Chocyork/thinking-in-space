@@ -1,0 +1,186 @@
+================================================================================
+VSI-Bench 3D Soft-Smoothing Feature Fusion 实验记录
+================================================================================
+
+实验日期: 2026-04-02
+实验目的: 基于 3D 重建结果的跨帧特征融合，提升视频语言模型的空间理解能力
+
+================================================================================
+一、实验原理
+================================================================================
+
+1.1 核心思想
+- 传统 VLM 处理视频时，每一帧独立编码，同一物体在不同帧的特征可能差异很大
+- 利用 3D 重建（Map-Anything）找到跨帧的同一物体对应关系
+- 在特征空间中对同一 3D 物体的不同视角 patch 进行 soft-smoothing 融合
+
+1.2 技术流程
+    Vision Tower → Projector → [3D Smooth] → LLM
+                              ↑
+                              └── 根据 matching_groups 融合同一 3D 物体的特征
+
+1.3 融合公式
+    new_feature = (1-α) * original_feature + α * mean(group_features)
+    
+    其中 α 为融合强度：
+    - α=0.0: 无融合 (baseline)
+    - α=0.3: 轻度融合
+    - α=0.5: 中度融合
+
+================================================================================
+二、数据集与资源
+================================================================================
+
+2.1 评测数据集
+    路径: /mnt/data/qyk/nyu-visionx/VSI-Bench/
+    样本数: 5130 个问题（512 个视频）
+    任务类型: object_counting, room_size_estimation, object_rel_direction 等 9 类
+
+2.2 3D 重建数据 (用于 matching)
+    重建工具: Map-Anything
+    缓存路径: /mnt/data/qyk/43d3dpt_16f/
+    
+2.3 Matching Groups (重建与 2D patch 的对应)
+    路径: /home/qyk/thinking-in-space/validation/43d3dpt_16f_match_voxel30cm/
+    格式: 每个视频一个 JSON，记录 3D voxel 对应的 (frame, patch) 列表
+    统计:
+      - 总有效 groups: 267,638 个
+      - 平均每组: 22.06 个成员 (跨帧匹配)
+      - 平均 IoU: 0.582
+      - IoU > 0.5: 33.9% (高相似度)
+
+2.4 模型
+    Baseline: /mnt/data/qyk/lmms-lab/llava-onevision-qwen2-0.5b-ov/
+    7B 模型: /mnt/data/qyk/lmms-lab/llava-onevision-qwen2-7b-ov/
+
+================================================================================
+三、实验脚本
+================================================================================
+
+3.1 Baseline 评测 (无 smoothing)
+    脚本: evaluate_all_in_one.sh
+    用法:
+        # 0.5B 模型 32帧
+        bash evaluate_all_in_one.sh --model llava_one_vision_qwen2_0p5b_ov_32f --num_processes 4
+        
+        # 7B 模型 16帧 (自定义数据集)
+        bash evaluate_baseline_7b_16f.sh --num_processes 4 --dataset_path "/mnt/data/qyk/43d_16f/"
+    
+    结果路径: ./logs/vsibench/
+
+3.2 3D Smooth 评测 (有 smoothing)
+    脚本: evaluate_3d_smooth.sh
+    用法:
+        # α=0.3 (512 完整样本)
+        bash evaluate_3d_smooth.sh --num_processes 4
+        
+        # α=0.4 (20 样本快速测试)
+        bash evaluate_3d_smooth.sh --alpha 0.4 --limit 20
+        
+        # α=0.5
+        bash evaluate_3d_smooth.sh --alpha 0.5
+    
+    关键参数:
+        --alpha: 融合强度 (默认 0.5)
+        --num_processes: GPU 数量 (默认 4)
+        --limit: 测试样本数 (空则跑全部 512)
+    
+    结果路径: ./logs/vsibench_3d_smooth_alpha{alpha}/
+
+3.3 核心代码文件
+    /home/qyk/thinking-in-space/lmms_eval/models/llava_onevision_3d_smooth.py
+    - 继承自 llava_onevision
+    - 在 encode_images 后插入 _smooth_features
+    - 使用环境变量 SMOOTH_CURR_VIDEO 传递视频 ID
+
+================================================================================
+四、实验结果对比
+================================================================================
+
+4.1 0.5B 模型 (16 frames)
+    ┌─────────────────────────┬──────────┬─────────┬─────────┬────────┐
+    │ 题型                    │ Baseline │ α=0.3   │ α=0.5   │ 趋势   │
+    ├─────────────────────────┼──────────┼─────────┼─────────┼────────┤
+    │ overall                 │ 28.295%  │ 28.184% │ 27.504% │ ↓      │
+    │ object_counting         │ 45.593%  │ 38.602% │ 34.000% │ ↓↓     │
+    │ object_size_estimation  │ 15.677%  │ 18.185% │ 20.430% │ ↑↑     │
+    │ room_size_estimation    │ 28.438%  │ 31.806% │ 29.757% │ ↑      │
+    │ object_rel_direction    │ 36.907%  │ 39.111% │ 38.431% │ ↑      │
+    └─────────────────────────┴──────────┴─────────┴─────────┴────────┘
+    
+    结论:
+    - α=0.3 总体略降 -0.11%，但空间理解任务提升明显
+    - object_counting 下降严重 (-6.99%)，融合导致不同物体特征混淆
+    - room_size_estimation (+3.37%) 和 object_rel_direction (+2.20%) 提升显著
+
+4.2 7B 模型 (32 frames) - Baseline
+    overall: 32.472%
+    object_counting: 47.894%
+    object_size_estimation: 47.377%
+    room_size_estimation: 13.021%
+    ...
+    
+    注: 7B + 16帧 + smoothing 实验待跑
+
+================================================================================
+五、结果文件位置
+================================================================================
+
+5.1 结果汇总
+    Baseline: ./logs/vsibench/{日期}/*_llava_onevision_model_args_*/results.json
+    Smooth:   ./logs/vsibench_3d_smooth_alpha{alpha}/
+
+5.2 查看命令
+    # 查看总体准确率
+    cat ./logs/vsibench_3d_smooth_alpha0.3/*/results.json | grep "overall"
+    
+    # 查看详细指标
+    cat ./logs/vsibench_3d_smooth_alpha0.3/*/results.json | python -m json.tool
+
+5.3 样本级别结果
+    文件: ./logs/vsibench_3d_smooth_alpha{alpha}/*/vsibench.json
+    包含: 每个问题的预测、ground_truth、MRA 分数
+
+================================================================================
+六、关键发现与问题
+================================================================================
+
+6.1 多进程同步问题 (已解决)
+    问题: generate_until 在主进程，encode_images 在子进程，video_id 无法传递
+    解决: 使用环境变量 SMOOTH_CURR_VIDEO 传递
+
+6.2 Video ID 格式 (已解决)
+    问题: 缓存中是 "arkitscenes_42445981"，提取的是 "42445981"
+    解决: 提取时组合 parent_dir + filename
+
+6.3 张量形状处理 (已解决)
+    问题: features 可能是 [num_frames, tokens_per_frame, hidden_dim] 而非 2D
+    解决: 增加 3D 形状判断，view(-1, hidden_dim) 平摊后再处理
+
+6.4 空间网格映射 (已解决)
+    问题: 原 27×27 网格与池化后的新网格需要 2D 空间映射
+    解决: (row, col) -> 按比例缩放 -> 新 (new_row, new_col)
+
+================================================================================
+七、下一步实验建议
+================================================================================
+
+1. 跑 7B + 16帧 + α=0.3，对比是否也有空间理解提升
+2. 尝试只融合高 IoU (>0.5) 的 groups，保护 object_counting
+3. 尝试不同 voxel size (目前 30cm) 的 matching groups
+4. 可视化融合前后的特征相似度，验证融合效果
+
+================================================================================
+八、相关路径速查
+================================================================================
+
+Matching groups: /home/qyk/thinking-in-space/validation/43d3dpt_16f_match_voxel30cm/
+3D 重建缓存:    /mnt/data/qyk/43d3dpt_16f/
+Baseline 脚本:  evaluate_all_in_one.sh
+Smooth 脚本:    evaluate_3d_smooth.sh
+核心代码:       lmms_eval/models/llava_onevision_3d_smooth.py
+实验记录:       3D_SMOOTH_EXPERIMENT_LOG.txt (本文件)
+
+================================================================================
+记录结束
+================================================================================
