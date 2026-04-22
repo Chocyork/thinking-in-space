@@ -20,10 +20,25 @@ import numpy as np
 from decord import VideoReader, cpu
 from PIL import Image
 
+def _get_vsibench_cache_dir():
+    """自动检测 VSI-Bench 视频缓存目录"""
+    # 优先检查 HF_HOME 环境变量
+    hf_home = os.path.expanduser(os.getenv("HF_HOME", "~/.cache/huggingface/"))
+    cache_dir = os.path.join(hf_home, "vsibench")
+    if os.path.exists(cache_dir):
+        return cache_dir
+    # 备选: 检查 /workspace/.cache/huggingface/vsibench (RunPod 常见路径)
+    alt_cache = "/workspace/.cache/huggingface/vsibench"
+    if os.path.exists(alt_cache):
+        return alt_cache
+    # 默认回退
+    return cache_dir
+
+_VSIBENCH_CACHE = _get_vsibench_cache_dir()
 VIDEO_DIRS = [
-    ("arkitscenes", os.path.expanduser("~/.cache/huggingface/vsibench/arkitscenes")),
-    ("scannet", os.path.expanduser("~/.cache/huggingface/vsibench/scannet")),
-    ("scannetpp", os.path.expanduser("~/.cache/huggingface/vsibench/scannetpp")),
+    ("arkitscenes", os.path.join(_VSIBENCH_CACHE, "arkitscenes")),
+    ("scannet", os.path.join(_VSIBENCH_CACHE, "scannet")),
+    ("scannetpp", os.path.join(_VSIBENCH_CACHE, "scannetpp")),
 ]
 
 
