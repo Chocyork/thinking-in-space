@@ -10,9 +10,10 @@ import json
 from pathlib import Path
 from typing import List
 
-sys.path.insert(0, "/home/qyk/map-anything")
-sys.path.insert(0, "/home/qyk/thinking-in-space")
-sys.path.insert(0, "LLaVA-NeXT/")
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT / "map-anything"))
+sys.path.insert(0, str(_PROJECT_ROOT / "thinking-in-space"))
+sys.path.insert(0, str(_PROJECT_ROOT / "thinking-in-space" / "LLaVA-NeXT"))
 
 from lmms_eval.models.llava_onevision import Llava_OneVision
 from lmms_eval.api.registry import register_model

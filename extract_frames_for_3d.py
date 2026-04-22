@@ -80,7 +80,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=["arkitscenes", "scannet", "scannetpp", "all"], 
                         default="all", help="要处理的数据集")
-    parser.add_argument("--output_base", default="/mnt/data/qyk/vsibench_frames",
+    parser.add_argument("--output_base", default="/workspace/yefei/vlm3d/data/vsibench_frames",
                         help="帧输出根目录")
     parser.add_argument("--num_frames", type=int, default=32,
                         help="每个视频提取的帧数（要和 VLM 的 max_frames_num 一致）")

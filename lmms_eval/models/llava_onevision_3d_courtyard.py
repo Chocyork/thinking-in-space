@@ -8,10 +8,12 @@ import sys
 import os
 import torch
 import numpy as np
+from pathlib import Path
 from decord import VideoReader, cpu
 
-sys.path.insert(0, "/home/qyk/map-anything")
-sys.path.insert(0, "/home/qyk/thinking-in-space")
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT / "map-anything"))
+sys.path.insert(0, str(_PROJECT_ROOT / "thinking-in-space"))
 
 # 继承自已有的 3D 类
 from lmms_eval.models.llava_onevision_3d import Llava_OneVision_3D

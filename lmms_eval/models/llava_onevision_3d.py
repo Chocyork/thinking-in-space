@@ -11,10 +11,12 @@ LLaVA-OneVision with 3D Spatial Encoding
 import sys
 import torch
 import numpy as np
+from pathlib import Path
 from decord import VideoReader, cpu
 
-sys.path.insert(0, "/home/qyk/map-anything")
-sys.path.insert(0, "/home/qyk/thinking-in-space")
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT / "map-anything"))
+sys.path.insert(0, str(_PROJECT_ROOT / "thinking-in-space"))
 
 # 导入原始类
 from lmms_eval.models.llava_onevision import Llava_OneVision
