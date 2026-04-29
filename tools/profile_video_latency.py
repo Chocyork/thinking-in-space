@@ -69,6 +69,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reconstruction-sec", type=float, default=0.0, help="Measured one-time reconstruction cost for the video.")
     parser.add_argument("--matching-sec", type=float, default=0.0, help="Measured one-time matching cost for the video.")
     parser.add_argument("--warmup-questions", type=int, default=0, help="Run this many questions before timing each variant.")
+    parser.add_argument(
+        "--measure-ttft",
+        action="store_true",
+        help="Measure time to first generated token by temporarily appending a non-stopping generation criterion.",
+    )
     parser.add_argument("--include-responses", action="store_true", help="Store model responses in the JSON output.")
     parser.add_argument("--output-json", default=None, help="Output JSON path. Defaults to stdout only.")
     return parser.parse_args()
@@ -213,6 +218,68 @@ def cuda_sync() -> None:
         torch.cuda.synchronize()
 
 
+class TTFTStoppingCriteria:
+    """Records the first generation step without changing model stopping behavior."""
+
+    def __init__(self, start_sec: float):
+        self.start_sec = start_sec
+        self.first_token_sec: Optional[float] = None
+        self.generated_steps = 0
+
+    def __call__(self, input_ids, scores, **kwargs) -> bool:
+        self.generated_steps += 1
+        if self.first_token_sec is None:
+            cuda_sync()
+            self.first_token_sec = time.perf_counter() - self.start_sec
+        return False
+
+
+def append_stopping_criterion(existing, criterion):
+    if existing is None:
+        return [criterion]
+    try:
+        merged = list(existing)
+    except TypeError:
+        merged = [existing]
+    merged.append(criterion)
+    return merged
+
+
+def generate_until_with_optional_ttft(lm, instance, measure_ttft: bool, start_sec: float):
+    if not measure_ttft:
+        return lm.generate_until([instance]), {}
+
+    model = getattr(lm, "model", None)
+    original_generate = getattr(model, "generate", None)
+    if model is None or original_generate is None:
+        return lm.generate_until([instance]), {
+            "ttft_sec": None,
+            "generated_steps_observed": None,
+            "ttft_error": "lm.model.generate not found",
+        }
+
+    ttft_criterion = TTFTStoppingCriteria(start_sec)
+
+    def wrapped_generate(*args, **kwargs):
+        kwargs = dict(kwargs)
+        kwargs["stopping_criteria"] = append_stopping_criterion(
+            kwargs.get("stopping_criteria"),
+            ttft_criterion,
+        )
+        return original_generate(*args, **kwargs)
+
+    try:
+        setattr(model, "generate", wrapped_generate)
+        responses = lm.generate_until([instance])
+    finally:
+        setattr(model, "generate", original_generate)
+
+    return responses, {
+        "ttft_sec": ttft_criterion.first_token_sec,
+        "generated_steps_observed": ttft_criterion.generated_steps,
+    }
+
+
 def estimate_token_counts(matching_groups_path: str, video_key: str, max_frames: int, stride: int) -> Dict[str, Any]:
     orig_grid = 27
     pooled_grid = orig_grid // stride
@@ -325,12 +392,19 @@ def profile_variant(
 
         per_question = []
         latencies = []
+        ttft_latencies = []
+        decode_after_ttft_latencies = []
         for doc_id in timed_ids:
             doc = task.dataset[split][doc_id]
             instance = construct_instance(task, doc_id, split)
             cuda_sync()
             start = time.perf_counter()
-            responses = lm.generate_until([instance])
+            responses, ttft_info = generate_until_with_optional_ttft(
+                lm,
+                instance,
+                args.measure_ttft,
+                start,
+            )
             cuda_sync()
             elapsed = time.perf_counter() - start
             latencies.append(elapsed)
@@ -339,6 +413,18 @@ def profile_variant(
                 "question_type": doc.get("question_type"),
                 "latency_sec": elapsed,
             }
+            if args.measure_ttft:
+                ttft_sec = ttft_info.get("ttft_sec")
+                decode_after_ttft_sec = elapsed - ttft_sec if ttft_sec is not None else None
+                row["ttft_sec"] = ttft_sec
+                row["decode_after_ttft_sec"] = decode_after_ttft_sec
+                row["generated_steps_observed"] = ttft_info.get("generated_steps_observed")
+                if "ttft_error" in ttft_info:
+                    row["ttft_error"] = ttft_info["ttft_error"]
+                if ttft_sec is not None:
+                    ttft_latencies.append(ttft_sec)
+                if decode_after_ttft_sec is not None:
+                    decode_after_ttft_latencies.append(decode_after_ttft_sec)
             if args.include_responses:
                 row["response"] = responses[0] if responses else None
             per_question.append(row)
@@ -357,6 +443,23 @@ def profile_variant(
             "inference_min_sec": latency_summary["min_sec"],
             "inference_max_sec": latency_summary["max_sec"],
         }
+        if args.measure_ttft:
+            ttft_summary = summarize_latencies(ttft_latencies)
+            decode_after_ttft_summary = summarize_latencies(decode_after_ttft_latencies)
+            video_result.update(
+                {
+                    "ttft_total_sec": ttft_summary["total_sec"],
+                    "ttft_mean_sec": ttft_summary["mean_sec"],
+                    "ttft_median_sec": ttft_summary["median_sec"],
+                    "ttft_min_sec": ttft_summary["min_sec"],
+                    "ttft_max_sec": ttft_summary["max_sec"],
+                    "decode_after_ttft_total_sec": decode_after_ttft_summary["total_sec"],
+                    "decode_after_ttft_mean_sec": decode_after_ttft_summary["mean_sec"],
+                    "decode_after_ttft_median_sec": decode_after_ttft_summary["median_sec"],
+                    "decode_after_ttft_min_sec": decode_after_ttft_summary["min_sec"],
+                    "decode_after_ttft_max_sec": decode_after_ttft_summary["max_sec"],
+                }
+            )
 
         if variant == "baseline":
             video_result["T_baseline_video_sec"] = latency_summary["total_sec"]
@@ -407,6 +510,7 @@ def main() -> None:
         "split": split,
         "selected_videos": video_keys,
         "num_selected_videos": len(video_keys),
+        "measure_ttft": args.measure_ttft,
         "formula": {
             "baseline": "T_baseline_video = N * T_baseline_inference_per_question",
             "prune": "T_prune_video = T_reconstruction_once + T_matching_once + N * T_pruned_inference_per_question",
